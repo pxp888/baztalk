@@ -7,6 +7,7 @@ ZMQ: always on; typer.py connects to CMD_PORT/OUT_PORT below.
 """
 import argparse
 import select
+import subprocess
 import sys
 import time
 from contextlib import contextmanager
@@ -42,6 +43,24 @@ def quiet_terminal():
         yield
     finally:
         termios.tcsetattr(fd, termios.TCSADRAIN, old)
+
+
+def _sink_mute(v):
+    subprocess.run(["pactl", "set-sink-mute", "@DEFAULT_SINK@", v], check=False)
+
+
+@contextmanager
+def system_muted():
+    """Mute system audio while recording, restore the previous state after."""
+    out = subprocess.run(["pactl", "get-sink-mute", "@DEFAULT_SINK@"],
+                         capture_output=True, text=True).stdout.split()
+    prev = out[-1] if out else "0"   # "Mute: yes|no" -> yes/no
+    _sink_mute("1")
+    print(f"system audio muted (was: {prev})")
+    try:
+        yield
+    finally:
+        _sink_mute(prev)
 
 
 def wait_start(cmd):
@@ -137,7 +156,8 @@ def main():
                 else:
                     print("ready")
                 wait_start(cmd)
-                audio = record(cmd=cmd)
+                with system_muted():
+                    audio = record(cmd=cmd)
                 if len(audio) < WPSR * 0.2:
                     print("(too short to transcribe)")
                     continue
