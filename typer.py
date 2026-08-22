@@ -26,10 +26,10 @@ import zmq
 CMD_URL = "tcp://127.0.0.1:5561"   # must match listen.py: CMD_PORT
 OUT_URL = "tcp://127.0.0.1:5562"   # must match listen.py: OUT_PORT
 PTT = e.KEY_F14                    # push-to-talk key
-HOLD = 0.03      # s each key is held: some apps drop zero-length taps (first/last chars)
-GAP = 0.06       # s between keys
-WARMUP = 0.30    # s before the first key: lets an idle focused window wake up
-TAIL = 0.10      # s after the last keyup
+HOLD = 0.01      # s each key is held: some apps drop zero-length taps (first/last chars)
+GAP = 0.02       # s between keys
+WARMUP = 0.20    # s before the first key: lets an idle focused window wake up
+TAIL = 0.05      # s after the last keyup
 
 # US-layout char -> keycode (plus which keys need shift to type them)
 def _key(*names):
