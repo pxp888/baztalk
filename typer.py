@@ -42,6 +42,8 @@ def _key(*names):
 MAP = {
     " ": _key("KEY_SPACE"), "\n": _key("KEY_ENTER"), "\t": _key("KEY_TAB"),
     "\x7f": _key("KEY_BACKSPACE"),
+    ",": _key("KEY_COMMA"), ".": _key("KEY_DOT"), "/": _key("KEY_SLASH"),
+    ";": _key("KEY_SEMICOLON"), "'": _key("KEY_APOSTROPHE"),
 }
 SHIFTED = {  # char -> unshifted key (pressing with shift)
     "!": _key("KEY_1"), "@": _key("KEY_2"), "#": _key("KEY_3"),
@@ -57,6 +59,9 @@ SHIFTED = {  # char -> unshifted key (pressing with shift)
 }
 for ch, code in zip(string.ascii_lowercase, string.ascii_uppercase):
     MAP[ch] = _key(f"KEY_{code}")
+    SHIFTED[ch.upper()] = _key(f"KEY_{code}")   # uppercase = lowercase key + shift
+for d in "0123456789":
+    MAP[d] = _key(f"KEY_{d}")
 
 ap = argparse.ArgumentParser(description=__doc__)
 ap.add_argument("--text", default="talk-typer: typing works",
