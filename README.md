@@ -1,6 +1,9 @@
 # talk
 
 Push-to-talk dictation: hold a key, speak, release, and the transcription is typed into whatever window has focus.
+This exists because bazzite makes voxtype difficult to install without altering the OS. 
+
+
 
 - Hold **F14** (or the spacebar) → recording starts
 - Release → Whisper transcribes the audio
