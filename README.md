@@ -20,6 +20,7 @@ This exists because bazzite makes voxtype difficult to install without altering 
 - Linux (needs `/dev/uinput`, `/dev/input`, `pactl`)
 - Python deps installed in a venv: `faster-whisper`, `sounddevice`, `zmq`, `evdev`, `numpy`
   (`faster-whisper` also pulls ctranslate2 + a whisper model on first run)
+  Optional, for the faster Whistle engine: `cactus-needle` + `soxr` and the `whistle.cact` weights (see Setup)
 - A microphone (hardcoded to a device matching **`umik`** by default — edit the `MIC` constant in `listen.py` to override)
 - Physical keyboard that exposes **F14** (check with `sudo evtest`)
 
@@ -30,6 +31,8 @@ python -m venv .venv
 .venv/bin/pip install faster-whisper sounddevice pyzmq evdev numpy
 # list audio devices to find your mic name:
 .venv/bin/python -m sounddevice
+# optional: Whistle engine (~17 MB, ~5x faster than whisper base.en on CPU)
+.venv/bin/pip install cactus-needle soxr && .venv/bin/needle download Cactus-Compute/whistle --out models
 ```
 
 ## Usage
@@ -39,6 +42,7 @@ python -m venv .venv
    ```sh
    .venv/bin/python listen.py            # or: dist/listen
    .venv/bin/python listen.py --model tiny.en --no-vad   # options
+   .venv/bin/python listen.py --engine whistle           # faster engine (needs models/whistle.cact)
    ```
 
    It loads the Whisper model, binds ports 5561/5562, and waits for a push-to-talk trigger.
@@ -59,6 +63,7 @@ Notes & limits:
 
 - Recording is capped at 60 s in case the release keypress is missed.
 - Transcription is CPU int8, so it's as fast as your CPU is (default model `base.en`).
+- `--engine whistle` uses Needle's Whistle STT instead: ~5x faster end-to-end on our machine, but in a short A/B (4 clips) whisper base.en transcribed our voice more accurately (0 vs 2 single-word misses), so it stays the default. Try both with real dictation; `--no-vad` only applies to whisper.
 - `--no-vad`: VAD edge-trimming can eat the first/last phoneme of your speech; disable it if that happens at the cost of transcribing leading/trailing silence.
 - The virtual keystrokes go to whatever window has keyboard focus. Wayland apps with secure input (password fields, browser credential bars) will ignore them.
 - Uppercase/punctuation works via the registered key set; keys not in `MAP`/`SHIFTED` in `typer.py` are silently skipped.

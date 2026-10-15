@@ -6,6 +6,7 @@ Mic: hardcoded to the UMIK (MIC below); override by editing that constant.
 ZMQ: always on; typer.py connects to CMD_PORT/OUT_PORT below.
 """
 import argparse
+import os
 import select
 import subprocess
 import sys
@@ -23,6 +24,7 @@ MIC = "umik"  # fuzzy device name
 MAX_SECS = 60  # safety cap in case the stop keypress is missed
 CMD_PORT = 5561  # typer -> listen commands (this process binds SUB)
 OUT_PORT = 5562  # listen -> typer results (this process binds PUB)
+WHISTLE_CACT = "models/whistle.cact"  # --engine whistle weights; `.venv/bin/needle download Cactus-Compute/whistle --out models`
 
 
 @contextmanager
@@ -129,12 +131,21 @@ def record(max_secs=MAX_SECS, cmd=None):
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--model", default="base.en", help="whisper model name")
+    ap.add_argument("--engine", choices=("whisper", "whistle"), default="whisper",
+                    help="transcription engine (whistle needs cactus-needle + WHISTLE_CACT)")
     ap.add_argument("--no-vad", action="store_true",
-                    help="disable VAD (its edge-trimming can eat the first/last phoneme of your speech)")
+                    help="disable VAD (whisper only; its edge-trimming can eat the first/last phoneme of your speech)")
     args = ap.parse_args()
 
-    print(f"loading whisper model ({args.model})...")
-    model = WhisperModel(args.model, device="cpu", compute_type="int8")
+    if args.engine == "whisper":
+        print(f"loading whisper model ({args.model})...")
+        model = WhisperModel(args.model, device="cpu", compute_type="int8")
+    else:
+        os.environ.setdefault("NEEDLE_TELEMETRY", "0"); os.environ.setdefault("DO_NOT_TRACK", "1")
+        import needle  # cactus-needle
+        if not os.path.exists(WHISTLE_CACT):
+            raise SystemExit(f"{WHISTLE_CACT} not found; run `.venv/bin/needle download Cactus-Compute/whistle --out models` (or edit WHISTLE_CACT)")
+        print("loading whistle model...")
 
     ctx = zmq.Context()
     cmd = ctx.socket(zmq.SUB)   # typer: PUB connect -> us
@@ -162,8 +173,11 @@ def main():
                     print("(too short to transcribe)")
                     continue
                 print("transcribing...")
-                segs, _ = model.transcribe(audio, vad_filter=not args.no_vad)
-                text = " ".join(s.text.strip() for s in segs)
+                if args.engine == "whisper":
+                    segs, _ = model.transcribe(audio, vad_filter=not args.no_vad)
+                    text = " ".join(s.text.strip() for s in segs)
+                else:
+                    text = needle.transcribe(audio, weights=WHISTLE_CACT)["text"]
                 print(text)
                 pub.send_multipart([b"result", text.encode()])
         except KeyboardInterrupt:

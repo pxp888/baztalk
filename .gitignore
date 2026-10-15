@@ -24,3 +24,6 @@ htmlcov/
 # Environments / local config
 .env
 .venv/
+
+# Model weights (downloaded, not committed)
+models/*.cact
