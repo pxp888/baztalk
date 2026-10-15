@@ -24,7 +24,8 @@ MIC = "umik"  # fuzzy device name
 MAX_SECS = 60  # safety cap in case the stop keypress is missed
 CMD_PORT = 5561  # typer -> listen commands (this process binds SUB)
 OUT_PORT = 5562  # listen -> typer results (this process binds PUB)
-WHISTLE_CACT = "models/whistle.cact"  # --engine whistle weights; `.venv/bin/needle download Cactus-Compute/whistle --out models`
+# next to this file, so it works from any cwd (e.g. systemd units without WorkingDirectory)
+WHISTLE_CACT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "models", "whistle.cact")
 
 
 @contextmanager
@@ -131,8 +132,8 @@ def record(max_secs=MAX_SECS, cmd=None):
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--model", default="base.en", help="whisper model name")
-    ap.add_argument("--engine", choices=("whisper", "whistle"), default="whisper",
-                    help="transcription engine (whistle needs cactus-needle + WHISTLE_CACT)")
+    ap.add_argument("--engine", choices=("whisper", "whistle"), default="whistle",
+                    help="transcription engine: whistle (default, needs cactus-needle) or whisper")
     ap.add_argument("--no-vad", action="store_true",
                     help="disable VAD (whisper only; its edge-trimming can eat the first/last phoneme of your speech)")
     args = ap.parse_args()
@@ -142,7 +143,10 @@ def main():
         model = WhisperModel(args.model, device="cpu", compute_type="int8")
     else:
         os.environ.setdefault("NEEDLE_TELEMETRY", "0"); os.environ.setdefault("DO_NOT_TRACK", "1")
-        import needle  # cactus-needle
+        try:
+            import needle  # cactus-needle
+        except ImportError:
+            raise SystemExit("cactus-needle not installed; run `.venv/bin/pip install cactus-needle soxr` or use --engine whisper")
         if not os.path.exists(WHISTLE_CACT):
             raise SystemExit(f"{WHISTLE_CACT} not found; run `.venv/bin/needle download Cactus-Compute/whistle --out models` (or edit WHISTLE_CACT)")
         print("loading whistle model...")
