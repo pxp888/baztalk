@@ -2,7 +2,7 @@
 """Push-to-talk: spacebar (or F14 via typer.py over ZMQ) to start, release to stop
 -> Whisper prints the text (and publishes it to typer.py so it can type it).
 
-Mic: hardcoded to the UMIK (MIC below); override by editing that constant.
+Mic: system default (set MIC=None) or edit MIC below for a specific device.
 ZMQ: always on; typer.py connects to CMD_PORT/OUT_PORT below.
 """
 import argparse
@@ -20,7 +20,7 @@ import sounddevice as sd
 from faster_whisper import WhisperModel
 
 WPSR = 16000  # whisper's rate
-MIC = "umik"  # fuzzy device name
+MIC = None  # system default; set to e.g. "umik" or an int index for a specific device
 MAX_SECS = 600  # safety cap in case the stop keypress is missed
 CMD_PORT = 5561  # typer -> listen commands (this process binds SUB)
 OUT_PORT = 5562  # listen -> typer results (this process binds PUB)
@@ -83,11 +83,11 @@ def wait_start(cmd):
 
 
 def resample(x, src, dst):
-    """3:1 average-pool downsample (48k -> 16k), good enough for speech."""
-    r, rem = divmod(src, dst)
-    if rem or len(x) < r:
+    """Resample to Whisper's rate using soxr (already installed with cactus-needle)."""
+    if src == dst:
         return x
-    return np.pad(x, (0, (-len(x)) % r), mode="edge").reshape(-1, r).mean(axis=1)
+    import soxr
+    return soxr.resample(x.astype(np.float32), src, dst)
 
 
 def resolve_device(q):
