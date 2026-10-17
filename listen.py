@@ -21,7 +21,7 @@ from faster_whisper import WhisperModel
 
 WPSR = 16000  # whisper's rate
 MIC = "umik"  # fuzzy device name
-MAX_SECS = 60  # safety cap in case the stop keypress is missed
+MAX_SECS = 600  # safety cap in case the stop keypress is missed
 CMD_PORT = 5561  # typer -> listen commands (this process binds SUB)
 OUT_PORT = 5562  # listen -> typer results (this process binds PUB)
 # next to this file, so it works from any cwd (e.g. systemd units without WorkingDirectory)
