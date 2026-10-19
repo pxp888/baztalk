@@ -18,9 +18,9 @@ This exists because bazzite makes voxtype difficult to install without altering 
 ## Requirements
 
 - Linux (needs `/dev/uinput`, `/dev/input`, `pactl`)
-- Python deps installed in a venv: `faster-whisper`, `sounddevice`, `zmq`, `evdev`, `numpy`
+- Python deps installed in a venv: `faster-whisper`, `sounddevice`, `zmq`, `evdev`, `numpy`, `soxr`
   (`faster-whisper` also pulls ctranslate2 + a whisper model on first run)
-  The default engine is Whistle, so also install `cactus-needle`, `soxr` and the `whistle.cact` weights (Setup below); the `--engine whisper` path needs nothing extra
+  The default engine is Phonon-2, so also install `fermion-research` (Setup below); the `--engine whisper` path needs nothing extra
 - A microphone (hardcoded to a device matching **`umik`** by default — edit the `MIC` constant in `listen.py` to override)
 - Physical keyboard that exposes **F14** (check with `sudo evtest`)
 
@@ -28,11 +28,11 @@ This exists because bazzite makes voxtype difficult to install without altering 
 
 ```sh
 python -m venv .venv
-.venv/bin/pip install faster-whisper sounddevice pyzmq evdev numpy
+.venv/bin/pip install faster-whisper sounddevice pyzmq evdev numpy soxr
 # list audio devices to find your mic name:
 .venv/bin/python -m sounddevice
-# default engine: Whistle (~17 MB, ~5x faster than whisper base.en on CPU)
-.venv/bin/pip install cactus-needle soxr && .venv/bin/needle download Cactus-Compute/whistle --out models
+# default engine: Phonon-2 (~164 MB, downloaded once on first run). On Linux install the CPU torch wheel first so pip skips the CUDA build.
+.venv/bin/pip install --no-deps torch --index-url https://download.pytorch.org/whl/cpu && .venv/bin/pip install fermion-research
 ```
 
 ## Usage
@@ -45,7 +45,7 @@ python -m venv .venv
    .venv/bin/python listen.py --engine whisper           # original faster-whisper engine
    ```
 
-   It loads the Whisper model, binds ports 5561/5562, and waits for a push-to-talk trigger.
+   It loads the Phonon-2 model (cached in `~/.cache/fermion` after first run), binds ports 5561/5562, and waits for a push-to-talk trigger.
 
 2. **Start the typer** (needs sudo for `/dev/uinput`):
 
@@ -63,7 +63,7 @@ Notes & limits:
 
 - Recording is capped at 60 s in case the release keypress is missed.
 - Transcription is CPU int8, so it's as fast as your CPU is (default model `base.en`).
-- Default engine is Whistle (~5x faster end-to-end). In a short A/B (4 clips) whisper base.en transcribed our voice more accurately (0 vs 2 single-word misses), so if you prefer it: `--engine whisper`. `--no-vad` only applies to whisper.
+- Default engine is Phonon-2 (~35 ms per clip on this CPU, runs at the AVX-512 VNNI kernel tier; check with `.venv/bin/fermion describe`). If you prefer faster-whisper: `--engine whisper` (then `--model`, `--no-vad` apply).
 - `--no-vad`: VAD edge-trimming can eat the first/last phoneme of your speech; disable it if that happens at the cost of transcribing leading/trailing silence.
 - The virtual keystrokes go to whatever window has keyboard focus. Wayland apps with secure input (password fields, browser credential bars) will ignore them.
 - Uppercase/punctuation works via the registered key set; keys not in `MAP`/`SHIFTED` in `typer.py` are silently skipped.

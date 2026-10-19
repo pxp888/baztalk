@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """Push-to-talk: spacebar (or F14 via typer.py over ZMQ) to start, release to stop
--> Whisper prints the text (and publishes it to typer.py so it can type it).
+-> Phonon-2 prints the text (and publishes it to typer.py so it can type it).
+   Use --engine whisper for the faster-whisper fallback.
 
 Mic: system default (set MIC=None) or edit MIC below for a specific device.
 ZMQ: always on; typer.py connects to CMD_PORT/OUT_PORT below.
 """
 import argparse
-import os
 import select
 import subprocess
 import sys
@@ -24,8 +24,6 @@ MIC = None  # system default; set to e.g. "umik" or an int index for a specific 
 MAX_SECS = 600  # safety cap in case the stop keypress is missed
 CMD_PORT = 5561  # typer -> listen commands (this process binds SUB)
 OUT_PORT = 5562  # listen -> typer results (this process binds PUB)
-# next to this file, so it works from any cwd (e.g. systemd units without WorkingDirectory)
-WHISTLE_CACT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "models", "whistle.cact")
 
 
 @contextmanager
@@ -83,7 +81,7 @@ def wait_start(cmd):
 
 
 def resample(x, src, dst):
-    """Resample to Whisper's rate using soxr (already installed with cactus-needle)."""
+    """Resample to the engines' 16 kHz rate using soxr."""
     if src == dst:
         return x
     import soxr
@@ -132,24 +130,19 @@ def record(max_secs=MAX_SECS, cmd=None):
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--model", default="base.en", help="whisper model name")
-    ap.add_argument("--engine", choices=("whisper", "whistle"), default="whisper",
-                    help="transcription engine: whisper (default) or whistle (needs cactus-needle)")
+    ap.add_argument("--engine", choices=("phonon", "whisper"), default="phonon",
+                    help="transcription engine: phonon-2 (default, needs fermion-research) or whisper")
     ap.add_argument("--no-vad", action="store_true",
                     help="disable VAD (whisper only; its edge-trimming can eat the first/last phoneme of your speech)")
     args = ap.parse_args()
 
-    if args.engine == "whisper":
+    if args.engine == "phonon":
+        import fermion
+        print("loading phonon-2 model (first run downloads ~164 MB)...")
+        speech = fermion.load_speech("phonon-2")
+    else:
         print(f"loading whisper model ({args.model})...")
         model = WhisperModel(args.model, device="cpu", compute_type="int8")
-    else:
-        os.environ.setdefault("NEEDLE_TELEMETRY", "0"); os.environ.setdefault("DO_NOT_TRACK", "1")
-        try:
-            import needle  # cactus-needle
-        except ImportError:
-            raise SystemExit("cactus-needle not installed; run `.venv/bin/pip install cactus-needle soxr` or use --engine whisper")
-        if not os.path.exists(WHISTLE_CACT):
-            raise SystemExit(f"{WHISTLE_CACT} not found; run `.venv/bin/needle download Cactus-Compute/whistle --out models` (or edit WHISTLE_CACT)")
-        print("loading whistle model...")
 
     ctx = zmq.Context()
     cmd = ctx.socket(zmq.SUB)   # typer: PUB connect -> us
@@ -177,11 +170,11 @@ def main():
                     print("(too short to transcribe)")
                     continue
                 print("transcribing...")
-                if args.engine == "whisper":
+                if args.engine == "phonon":
+                    text, _, _ = speech.transcribe_array(audio)  # 16 kHz mono float32
+                else:
                     segs, _ = model.transcribe(audio, vad_filter=not args.no_vad)
                     text = " ".join(s.text.strip() for s in segs)
-                else:
-                    text = needle.transcribe(audio, weights=WHISTLE_CACT)["text"]
                 print(text)
                 pub.send_multipart([b"result", text.encode()])
         except KeyboardInterrupt:
