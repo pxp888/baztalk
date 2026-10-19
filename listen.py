@@ -132,8 +132,8 @@ def record(max_secs=MAX_SECS, cmd=None):
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--model", default="base.en", help="whisper model name")
-    ap.add_argument("--engine", choices=("whisper", "whistle"), default="whistle",
-                    help="transcription engine: whistle (default, needs cactus-needle) or whisper")
+    ap.add_argument("--engine", choices=("whisper", "whistle"), default="whisper",
+                    help="transcription engine: whisper (default) or whistle (needs cactus-needle)")
     ap.add_argument("--no-vad", action="store_true",
                     help="disable VAD (whisper only; its edge-trimming can eat the first/last phoneme of your speech)")
     args = ap.parse_args()
