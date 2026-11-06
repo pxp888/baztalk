@@ -20,7 +20,9 @@ import sounddevice as sd
 from faster_whisper import WhisperModel
 
 WPSR = 16000  # whisper's rate
-MIC = None  # system default; set to e.g. "umik" or an int index for a specific device
+# PortAudio's own default here is the ALC897 motherboard jack, not PipeWire's
+# default source (the Umik), so name it explicitly.
+MIC = "umik"
 MAX_SECS = 600  # safety cap in case the stop keypress is missed
 CMD_PORT = 5561  # typer -> listen commands (this process binds SUB)
 OUT_PORT = 5562  # listen -> typer results (this process binds PUB)
@@ -107,7 +109,9 @@ def record(max_secs=MAX_SECS, cmd=None):
     sr = int(sd.query_devices(device, "input")["default_samplerate"])
     block = max(64, sr // 30)
     chunks = []
-    with sd.InputStream(samplerate=sr, channels=1, dtype="float32",
+    # shortcut: channels=2 because opening this mic with channels=1 aborts glibc
+    # (heap corruption in the portaudio/ALSA open path); take the left channel.
+    with sd.InputStream(samplerate=sr, channels=2, dtype="float32",
                         blocksize=block, device=device) as s:
         print("recording... (release F14 / press space to stop)")
         t0 = time.time()
